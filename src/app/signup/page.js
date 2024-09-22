@@ -14,12 +14,13 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { signup, error } = useTaskContext()
+  const { signup, error, clearError } = useTaskContext()
   const router = useRouter()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    clearError()
     try {
       const success = await signup(name, email, password)
       if (success) {
@@ -46,7 +47,7 @@ export default function SignupPage() {
               <Input
                 id="name"
                 type="text"
-                placeholder=""
+                placeholder="John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -57,7 +58,7 @@ export default function SignupPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder=""
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

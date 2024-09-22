@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pencil, Trash2, ArrowUpDown } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { DndContext, DragEndEvent, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -27,7 +27,6 @@ export default function Component() {
 
   const sensors = useSensors(useSensor(PointerSensor))
 
-  // Alert management
   useEffect(() => {
     if (alert.message) {
       const timer = setTimeout(() => {
@@ -37,11 +36,9 @@ export default function Component() {
     }
   }, [alert])
 
-  // Filtering and sorting effect
   useEffect(() => {
     let result = tasks
 
-    // Apply filters
     if (filterConfig.status !== 'All') {
       result = result.filter(task => task.status === filterConfig.status)
     }
@@ -55,7 +52,6 @@ export default function Component() {
       )
     }
 
-    // Apply sorting
     if (sortConfig.key) {
       result.sort((a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) {
@@ -71,12 +67,10 @@ export default function Component() {
     setFilteredTasks(result)
   }, [tasks, filterConfig, sortConfig])
 
-  // Alert display function
   const showAlert = (type, message) => {
     setAlert({ type, message })
   }
 
-  // Task addition handler
   const handleAddTask = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
@@ -101,13 +95,11 @@ export default function Component() {
     }
   }
 
-  // Task edit handler
   const handleEditTask = (task) => {
     setEditingTask(task)
     setIsModalOpen(true)
   }
 
-  // Task update handler
   const handleUpdateTask = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
@@ -134,7 +126,6 @@ export default function Component() {
     }
   }
 
-  // Task deletion handler
   const handleDeleteTask = async (taskId) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
@@ -151,20 +142,27 @@ export default function Component() {
     }
   }
 
-  // Drag and drop handler for Kanban board
   const handleDragEnd = async (event) => {
     const { active, over } = event
 
     if (active.id !== over.id) {
       const oldIndex = tasks.findIndex((task) => task._id === active.id)
       const newIndex = tasks.findIndex((task) => task._id === over.id)
-
       const newTasks = arrayMove(tasks, oldIndex, newIndex)
-      const updatedTask = { ...newTasks[newIndex], status: over.data.current.status }
-      
+
+      const updatedTask = {
+        ...newTasks[newIndex],
+        status: over.data.current.task.status
+      }
+
       try {
         const result = await updateTask(updatedTask)
         if (result.success) {
+          // Update local state immediately
+          const updatedTasks = tasks.map(task => 
+            task._id === updatedTask._id ? updatedTask : task
+          )
+          fetchTasks() // Refresh tasks from the server
           showAlert('success', "Task status updated successfully")
         } else {
           showAlert('error', result.error || "Failed to update task status. Please try again.")
@@ -176,7 +174,6 @@ export default function Component() {
     }
   }
 
-  // Sorting handler
   const handleSort = (key) => {
     let direction = 'ascending'
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -203,7 +200,6 @@ export default function Component() {
             <CardTitle>Tasks Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Filtering and search inputs */}
             <div className="mb-4 flex flex-wrap gap-2">
               <Input
                 type="text"
@@ -241,7 +237,6 @@ export default function Component() {
                 </SelectContent>
               </Select>
             </div>
-            {/* Tabs for List and Board views */}
             <Tabs defaultValue="list">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="list">List View</TabsTrigger>
@@ -257,7 +252,6 @@ export default function Component() {
                 />
               </TabsContent>
               <TabsContent value="board">
-                {/* Kanban board is not affected by sorting and filtering */}
                 <KanbanBoard tasks={tasks} onDragEnd={handleDragEnd} />
               </TabsContent>
             </Tabs>
@@ -274,7 +268,6 @@ export default function Component() {
           </Card>
         </div>
       </div>
-      {/* Edit task modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -288,11 +281,9 @@ export default function Component() {
   )
 }
 
-// TaskList component: Displays tasks in a list view with sorting capabilities
 function TaskList({ tasks, onEdit, onDelete, onSort, sortConfig }) {
   return (
     <div>
-      {/* Sorting headers */}
       <div className="flex justify-between items-center mb-2">
         <Button variant="ghost" onClick={() => onSort('title')}>
           Title {sortConfig.key === 'title' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
@@ -308,7 +299,6 @@ function TaskList({ tasks, onEdit, onDelete, onSort, sortConfig }) {
         </Button>
         <span>Actions</span>
       </div>
-      {/* Task list */}
       <ul className="space-y-2">
         {tasks.map((task) => (
           <li key={task._id} className="p-4 rounded shadow bg-card text-card-foreground">
@@ -336,7 +326,6 @@ function TaskList({ tasks, onEdit, onDelete, onSort, sortConfig }) {
   )
 }
 
-// KanbanBoard component: Displays tasks in a kanban board view
 function KanbanBoard({ tasks, onDragEnd }) {
   const columns = ['To Do', 'In Progress', 'Completed']
   const sensors = useSensors(useSensor(PointerSensor))
@@ -361,7 +350,6 @@ function KanbanBoard({ tasks, onDragEnd }) {
   )
 }
 
-// SortableTask component: Represents a draggable task item in the KanbanBoard
 function SortableTask({ task }) {
   const {
     attributes,
@@ -369,7 +357,13 @@ function SortableTask({ task }) {
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: task._id, data:task.status  })
+  } = useSortable({ 
+    id: task._id,
+    data: {
+      type: 'Task',
+      task,
+    }
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -392,7 +386,6 @@ function SortableTask({ task }) {
   )
 }
 
-// TaskForm component: Form for adding or editing tasks
 function TaskForm({ task, onSubmit }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">

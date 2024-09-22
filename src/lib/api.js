@@ -1,5 +1,5 @@
 // src/lib/api.js
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://task-manager-backend-wqxa.vercel.app';
 
 async function fetchWithAuth(endpoint, options = {}) {
   const token = localStorage.getItem('token');

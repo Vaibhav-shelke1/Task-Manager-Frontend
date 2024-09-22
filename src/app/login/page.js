@@ -13,12 +13,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { login, error } = useTaskContext()
+  const { login, error, clearError } = useTaskContext()
   const router = useRouter()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    clearError()
     try {
       const success = await login(email, password)
       if (success) {
@@ -45,7 +46,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder=""
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
