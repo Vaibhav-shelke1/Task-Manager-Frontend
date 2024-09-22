@@ -59,7 +59,7 @@ export const TaskProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       })
       const data = await response.json()
-      if (response.ok) {
+      if (data.success) {
         setToken(data.authToken)
         localStorage.setItem('token', data.authToken)
         await fetchTasks(data.authToken)
