@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 const TaskContext = createContext(undefined)
-
+const common_url="https://task-manager-backend-wqxa.vercel.app"
 export const useTaskContext = () => {
   const context = useContext(TaskContext)
   if (!context) {
@@ -33,7 +33,7 @@ export const TaskProvider = ({ children }) => {
   const fetchTasks = async (authToken) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:5000/api/tasks/fetchalltask', {
+      const response = await fetch(`${common_url}/api/tasks/fetchalltask`, {
         headers: { 'auth-token': authToken },
       })
       const data = await response.json()
@@ -53,7 +53,7 @@ export const TaskProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(`${common_url}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -80,7 +80,7 @@ export const TaskProvider = ({ children }) => {
   const signup = async (name, email, password) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:5000/api/auth/createuser', {
+      const response = await fetch(`${common_url}/api/auth/createuser`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
@@ -114,7 +114,7 @@ export const TaskProvider = ({ children }) => {
   const addTask = async (task) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:5000/api/tasks/addtask', {
+      const response = await fetch(`${common_url}/api/tasks/addtask`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +141,7 @@ export const TaskProvider = ({ children }) => {
   const updateTask = async (updatedTask) => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:5000/api/tasks/updatetask/${updatedTask._id}`, {
+      const response = await fetch(`${common_url}/api/tasks/updatetask/${updatedTask._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -163,12 +163,13 @@ export const TaskProvider = ({ children }) => {
     } finally {
       setLoading(false)
     }
-  }
+}
+
 
   const deleteTask = async (id) => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:5000/api/tasks/deletetask/${id}`, {
+      const response = await fetch(`${common_url}/api/tasks/deletetask/${id}`, {
         method: 'DELETE',
         headers: { 'auth-token': token },
       })
