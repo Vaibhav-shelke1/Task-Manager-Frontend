@@ -1,10 +1,11 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 const TaskContext = createContext(undefined)
-const common_url="https://task-manager-backend-wqxa.vercel.app"
+const common_url = "https://task-manager-backend-wqxa.vercel.app"
+
 export const useTaskContext = () => {
   const context = useContext(TaskContext)
   if (!context) {
@@ -30,7 +31,17 @@ export const TaskProvider = ({ children }) => {
     }
   }, [])
 
-  const fetchTasks = async (authToken) => {
+  const handleApiError = useCallback((error, customMessage) => {
+    console.error(customMessage, error)
+    if (error.response && error.response.status === 401) {
+      setError('Session expired. Please login again.')
+      logout()
+    } else {
+      setError(error.message || customMessage)
+    }
+  }, [])
+
+  const fetchTasks = useCallback(async (authToken) => {
     try {
       setLoading(true)
       const response = await fetch(`${common_url}/api/tasks/fetchalltask`, {
@@ -43,12 +54,11 @@ export const TaskProvider = ({ children }) => {
         throw new Error(data.error || 'Failed to fetch tasks')
       }
     } catch (error) {
-      console.error('Fetch tasks error:', error)
-      setError('Failed to fetch tasks')
+      handleApiError(error, 'Failed to fetch tasks')
     } finally {
       setLoading(false)
     }
-  }
+  }, [handleApiError])
 
   const login = async (email, password) => {
     try {
@@ -69,8 +79,7 @@ export const TaskProvider = ({ children }) => {
         throw new Error(data.error || 'Login failed')
       }
     } catch (error) {
-      console.error('Login error:', error)
-      setError(error.message)
+      handleApiError(error, 'Login failed')
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
@@ -96,20 +105,19 @@ export const TaskProvider = ({ children }) => {
         throw new Error(data.error || 'Signup failed')
       }
     } catch (error) {
-      console.error('Signup error:', error)
-      setError(error.message)
+      handleApiError(error, 'Signup failed')
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
     }
   }
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null)
     localStorage.removeItem('token')
     setTasks([])
     router.push('/login')
-  }
+  }, [router])
 
   const addTask = async (task) => {
     try {
@@ -124,14 +132,13 @@ export const TaskProvider = ({ children }) => {
       })
       const data = await response.json()
       if (response.ok) {
-        setTasks([...tasks, data.savedTask])
+        setTasks(prevTasks => [...prevTasks, data.savedTask])
         return { success: true, task: data.savedTask }
       } else {
         throw new Error(data.error || 'Failed to add task')
       }
     } catch (error) {
-      console.error('Add task error:', error)
-      setError(error.message)
+      handleApiError(error, 'Failed to add task')
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
@@ -151,20 +158,18 @@ export const TaskProvider = ({ children }) => {
       })
       const data = await response.json()
       if (response.ok) {
-        setTasks(tasks.map(task => task._id === updatedTask._id ? data : task))
+        setTasks(prevTasks => prevTasks.map(task => task._id === updatedTask._id ? data : task))
         return { success: true, task: data }
       } else {
         throw new Error(data.error || 'Failed to update task')
       }
     } catch (error) {
-      console.error('Update task error:', error)
-      setError(error.message)
+      handleApiError(error, 'Failed to update task')
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
     }
-}
-
+  }
 
   const deleteTask = async (id) => {
     try {
@@ -174,20 +179,23 @@ export const TaskProvider = ({ children }) => {
         headers: { 'auth-token': token },
       })
       if (response.ok) {
-        setTasks(tasks.filter(task => task._id !== id))
+        setTasks(prevTasks => prevTasks.filter(task => task._id !== id))
         return { success: true }
       } else {
         const data = await response.json()
         throw new Error(data.error || 'Failed to delete task')
       }
     } catch (error) {
-      console.error('Delete task error:', error)
-      setError(error.message)
+      handleApiError(error, 'Failed to delete task')
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
     }
   }
+
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
 
   return (
     <TaskContext.Provider value={{
@@ -201,7 +209,8 @@ export const TaskProvider = ({ children }) => {
       addTask,
       updateTask,
       deleteTask,
-      fetchTasks: () => fetchTasks(token)
+      fetchTasks: () => fetchTasks(token),
+      clearError
     }}>
       {children}
     </TaskContext.Provider>
