@@ -14,6 +14,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 
+
 export default function Navbar() {
   const { token, logout } = useTaskContext();
   const { theme, setTheme } = useTheme();
@@ -82,7 +83,7 @@ export default function Navbar() {
               </SheetTrigger>
               <SheetContent className="font-bold bg-white dark:bg-gray-800 text-black dark:text-white items-center">
                 <SheetHeader>
-                  <SheetTitle><div className="items-center">Task Manager</div></SheetTitle>
+                  <SheetTitle ><div className="items-center">Task Manager</div></SheetTitle>
                   <SheetDescription>
                     <div className="flex flex-col gap-5 ">
                       {token ? (
