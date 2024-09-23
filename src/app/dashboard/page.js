@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTaskContext } from '@/context/TaskContext'
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -8,25 +8,54 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Plus, Calendar, Flag, ArrowUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { DndContext, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, closestCorners, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+// Main component for the Task Management Dashboard
 export default function Component() {
-  const { tasks, loading, error, fetchTasks, addTask, updateTask, deleteTask } = useTaskContext()
+  const { tasks: contextTasks, loading, error, fetchTasks, addTask, updateTask, deleteTask } = useTaskContext()
   const [editingTask, setEditingTask] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [alert, setAlert] = useState({ type: null, message: null })
-  const [filteredTasks, setFilteredTasks] = useState(tasks)
+  const [localTasks, setLocalTasks] = useState([])
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' })
   const [filterConfig, setFilterConfig] = useState({ status: 'All', priority: 'All', search: '' })
 
-  const sensors = useSensors(useSensor(PointerSensor))
+  // Configure sensors for drag and drop functionality
+  const sensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  )
 
+  // Load tasks from localStorage or fetch from server on initial render
+  useEffect(() => {
+    const storedTasks = localStorage.getItem('tasks')
+    if (storedTasks) {
+      setLocalTasks(JSON.parse(storedTasks))
+    } else {
+      fetchTasks()
+    }
+  }, [fetchTasks])
+
+  // Update localTasks and localStorage when contextTasks change
+  useEffect(() => {
+    if (contextTasks.length > 0) {
+      setLocalTasks(contextTasks)
+      localStorage.setItem('tasks', JSON.stringify(contextTasks))
+    }
+  }, [contextTasks])
+
+  // Clear alert message after 15 seconds
   useEffect(() => {
     if (alert.message) {
       const timer = setTimeout(() => {
@@ -36,8 +65,9 @@ export default function Component() {
     }
   }, [alert])
 
-  useEffect(() => {
-    let result = tasks
+  // Filter and sort tasks based on current configuration
+  const filterAndSortTasks = useCallback(() => {
+    let result = localTasks
 
     if (filterConfig.status !== 'All') {
       result = result.filter(task => task.status === filterConfig.status)
@@ -64,13 +94,15 @@ export default function Component() {
       })
     }
 
-    setFilteredTasks(result)
-  }, [tasks, filterConfig, sortConfig])
+    return result
+  }, [localTasks, filterConfig, sortConfig])
 
+  // Display alert message
   const showAlert = (type, message) => {
     setAlert({ type, message })
   }
 
+  // Handle adding a new task
   const handleAddTask = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
@@ -84,6 +116,9 @@ export default function Component() {
     try {
       const result = await addTask(newTask)
       if (result.success) {
+        const updatedTasks = [...localTasks, result.task]
+        setLocalTasks(updatedTasks)
+        localStorage.setItem('tasks', JSON.stringify(updatedTasks))
         e.target.reset()
         showAlert('success', "Task added successfully")
       } else {
@@ -95,11 +130,13 @@ export default function Component() {
     }
   }
 
+  // Set the task to be edited and open the edit modal
   const handleEditTask = (task) => {
     setEditingTask(task)
     setIsModalOpen(true)
   }
 
+  // Handle updating an existing task
   const handleUpdateTask = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
@@ -114,6 +151,9 @@ export default function Component() {
     try {
       const result = await updateTask(updatedTask)
       if (result.success) {
+        const updatedTasks = localTasks.map(task => task._id === updatedTask._id ? updatedTask : task)
+        setLocalTasks(updatedTasks)
+        localStorage.setItem('tasks', JSON.stringify(updatedTasks))
         setEditingTask(null)
         setIsModalOpen(false)
         showAlert('success', "Task updated successfully")
@@ -126,11 +166,15 @@ export default function Component() {
     }
   }
 
+  // Handle deleting a task
   const handleDeleteTask = async (taskId) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
         const result = await deleteTask(taskId)
         if (result.success) {
+          const updatedTasks = localTasks.filter(task => task._id !== taskId)
+          setLocalTasks(updatedTasks)
+          localStorage.setItem('tasks', JSON.stringify(updatedTasks))
           showAlert('success', "Task deleted successfully")
         } else {
           showAlert('error', result.error || "Failed to delete task. Please try again.")
@@ -142,38 +186,44 @@ export default function Component() {
     }
   }
 
+  // Handle drag and drop of tasks
   const handleDragEnd = async (event) => {
     const { active, over } = event
 
     if (active.id !== over.id) {
-      const oldIndex = tasks.findIndex((task) => task._id === active.id)
-      const newIndex = tasks.findIndex((task) => task._id === over.id)
-      const newTasks = arrayMove(tasks, oldIndex, newIndex)
+      const oldIndex = localTasks.findIndex((task) => task._id === active.id)
+      const newIndex = localTasks.findIndex((task) => task._id === over.id)
+      const newTasks = arrayMove(localTasks, oldIndex, newIndex)
 
       const updatedTask = {
         ...newTasks[newIndex],
         status: over.data.current.task.status
       }
 
+      setLocalTasks(newTasks)
+      localStorage.setItem('tasks', JSON.stringify(newTasks))
+
       try {
         const result = await updateTask(updatedTask)
         if (result.success) {
-          // Update local state immediately
-          const updatedTasks = tasks.map(task => 
-            task._id === updatedTask._id ? updatedTask : task
-          )
-          fetchTasks() // Refresh tasks from the server
           showAlert('success', "Task status updated successfully")
         } else {
           showAlert('error', result.error || "Failed to update task status. Please try again.")
+          // Revert the change if the server update fails
+          setLocalTasks(localTasks)
+          localStorage.setItem('tasks', JSON.stringify(localTasks))
         }
       } catch (error) {
         console.error('Error in handleDragEnd:', error)
         showAlert('error', "An unexpected error occurred. Please try again.")
+        // Revert the change if there's an error
+        setLocalTasks(localTasks)
+        localStorage.setItem('tasks', JSON.stringify(localTasks))
       }
     }
   }
 
+  // Handle sorting of tasks
   const handleSort = (key) => {
     let direction = 'ascending'
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -186,18 +236,20 @@ export default function Component() {
     return <div className="flex justify-center items-center h-screen">Loading...</div>
   }
 
+  const filteredTasks = filterAndSortTasks()
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Task Management</h1>
+    <div className="container mx-auto p-4 bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
+      <h1 className="text-4xl font-bold mb-6 text-center text-purple-800 dark:text-purple-300">Task Management</h1>
       {alert.message && (
-        <Alert variant={alert.type === 'error' ? 'destructive' : 'default'} className="mb-4">
+        <Alert variant={alert.type === 'error' ? 'destructive' : 'default'} className="mb-4 bg-opacity-90 backdrop-blur-sm">
           <AlertDescription>{alert.message}</AlertDescription>
         </Alert>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="col-span-1 lg:col-span-2">
+        <Card className="col-span-1 lg:col-span-2 bg-white dark:bg-gray-800 shadow-xl">
           <CardHeader>
-            <CardTitle>Tasks Overview</CardTitle>
+            <CardTitle className="text-2xl text-purple-700 dark:text-purple-300">Tasks Overview</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex flex-wrap gap-2">
@@ -206,13 +258,13 @@ export default function Component() {
                 placeholder="Search tasks..."
                 value={filterConfig.search}
                 onChange={(e) => setFilterConfig({...filterConfig, search: e.target.value})}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto bg-white dark:bg-gray-700"
               />
               <Select
                 value={filterConfig.status}
                 onValueChange={(value) => setFilterConfig({...filterConfig, status: value})}
               >
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px] bg-white dark:bg-gray-700">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -226,7 +278,7 @@ export default function Component() {
                 value={filterConfig.priority}
                 onValueChange={(value) => setFilterConfig({...filterConfig, priority: value})}
               >
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px] bg-white dark:bg-gray-700">
                   <SelectValue placeholder="Filter by priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -237,7 +289,7 @@ export default function Component() {
                 </SelectContent>
               </Select>
             </div>
-            <Tabs defaultValue="list">
+            <Tabs defaultValue="board" className="space-y-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="list">List View</TabsTrigger>
                 <TabsTrigger value="board">Board View</TabsTrigger>
@@ -252,15 +304,15 @@ export default function Component() {
                 />
               </TabsContent>
               <TabsContent value="board">
-                <KanbanBoard tasks={tasks} onDragEnd={handleDragEnd} />
+                <KanbanBoard tasks={filteredTasks} onDragEnd={handleDragEnd} />
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
         <div>
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 shadow-xl">
             <CardHeader>
-              <CardTitle>Add New Task</CardTitle>
+              <CardTitle className="text-2xl text-purple-700 dark:text-purple-300">Add New Task</CardTitle>
             </CardHeader>
             <CardContent>
               <TaskForm onSubmit={handleAddTask} />
@@ -269,9 +321,9 @@ export default function Component() {
         </div>
       </div>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white dark:bg-gray-800">
           <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
+            <DialogTitle className="text-2xl text-purple-700 dark:text-purple-300">Edit Task</DialogTitle>
             <DialogDescription>Make changes to your task here. Click save when you're done.</DialogDescription>
           </DialogHeader>
           <TaskForm task={editingTask} onSubmit={handleUpdateTask} />
@@ -281,61 +333,99 @@ export default function Component() {
   )
 }
 
+// Component for displaying tasks in a list format
 function TaskList({ tasks, onEdit, onDelete, onSort, sortConfig }) {
   return (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <Button variant="ghost" onClick={() => onSort('title')}>
-          Title {sortConfig.key === 'title' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-        </Button>
-        <Button variant="ghost" onClick={() => onSort('status')}>
-          Status {sortConfig.key === 'status' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-        </Button>
-        <Button variant="ghost" onClick={() => onSort('priority')}>
-          Priority {sortConfig.key === 'priority' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-        </Button>
-        <Button variant="ghost" onClick={() => onSort('dueDate')}>
-          Due Date {sortConfig.key === 'dueDate' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-        </Button>
-        <span>Actions</span>
+    <div className="space-y-4">
+      <div className="hidden md:grid md:grid-cols-5 gap-4 font-semibold text-sm text-gray-500 dark:text-gray-400">
+        <div className="col-span-2">
+          <Button variant="ghost" onClick={() => onSort('title')} className="w-full justify-start">
+            Title {sortConfig.key === 'title' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+          </Button>
+        </div>
+        <div>
+          <Button variant="ghost" onClick={() => onSort('status')} className="w-full justify-start">
+            Status {sortConfig.key === 'status' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+          </Button>
+        </div>
+        <div>
+          <Button variant="ghost" onClick={() => onSort('priority')} className="w-full justify-start">
+            Priority {sortConfig.key === 'priority' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+          </Button>
+        </div>
+        <div>
+          <Button variant="ghost" onClick={() => onSort('dueDate')} className="w-full justify-start">
+            Due Date {sortConfig.key === 'dueDate' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+          </Button>
+        </div>
       </div>
-      <ul className="space-y-2">
-        {tasks.map((task) => (
-          <li key={task._id} className="p-4 rounded shadow bg-card text-card-foreground">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-bold">{task.title}</h3>
-                <p>{task.description}</p>
-                <p>Status: {task.status}</p>
-                <p>Priority: {task.priority}</p>
-                <p>Due Date: {new Date(task.dueDate).toLocaleDateString()}</p>
+      {tasks.map((task) => (
+        <Card key={task._id} className="bg-white dark:bg-gray-800 shadow hover:shadow-md transition-shadow duration-200">
+          <CardContent className="p-4">
+            <div className="md:hidden mb-2">
+              <Button variant="ghost" onClick={() => onSort('title')} className="w-full justify-start text-sm font-semibold text-purple-700 dark:text-purple-300">
+                Sort by Title <ArrowUpDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+            <div className="md:grid md:grid-cols-5 gap-4 items-center">
+              <div className="col-span-2 mb-2 md:mb-0">
+                <h3 className="font-semibold text-purple-700 dark:text-purple-300">{task.title}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{task.description}</p>
               </div>
-              <div>
-                <Button className='mx-2' variant="ghost" size="icon" onClick={() => onEdit(task)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => onDelete(task._id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div className="mb-2 md:mb-0">
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                  ${task.status === 'To Do' ? 'bg-yellow-200 text-yellow-800' :
+                    task.status === 'In Progress' ? 'bg-blue-200 text-blue-800' :
+                    'bg-green-200 text-green-800'}`}>
+                  {task.status}
+                </span>
+              </div>
+              <div className="mb-2 md:mb-0">
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                  ${task.priority === 'Low' ? 'bg-gray-200 text-gray-800' :
+                    task.priority === 'Medium' ? 'bg-orange-200 text-orange-800' :
+                    'bg-red-200 text-red-800'}`}>
+                  {task.priority}
+                </span>
+              </div>
+              <div className="mb-2 md:mb-0 text-sm text-gray-600 dark:text-gray-400">
+                {new Date(task.dueDate).toLocaleDateString()}
               </div>
             </div>
-          </li>
-        ))}
-      </ul>
+            <div className="mt-4 flex justify-end space-x-2">
+              <Button variant="outline" size="sm" onClick={() => onEdit(task)}>
+                <Pencil className="h-4 w-4 mr-1" /> Edit
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onDelete(task._id)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
 
+// Component for displaying tasks in a Kanban board format
 function KanbanBoard({ tasks, onDragEnd }) {
   const columns = ['To Do', 'In Progress', 'Completed']
-  const sensors = useSensors(useSensor(PointerSensor))
+  const sensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  )
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {columns.map((column) => (
-          <div key={column} className="p-4 rounded bg-secondary">
-            <h3 className="font-bold mb-2">{column}</h3>
+          <div key={column} className="p-4 rounded-lg bg-gray-100 dark:bg-gray-700">
+            <h3 className="font-bold mb-4 text-lg text-center text-purple-700 dark:text-purple-300">{column}</h3>
             <SortableContext items={tasks.filter((task) => task.status === column).map((task) => task._id)} strategy={verticalListSortingStrategy}>
               {tasks
                 .filter((task) => task.status === column)
@@ -350,6 +440,7 @@ function KanbanBoard({ tasks, onDragEnd }) {
   )
 }
 
+// Component for individual draggable task items in the Kanban board
 function SortableTask({ task }) {
   const {
     attributes,
@@ -357,6 +448,7 @@ function SortableTask({ task }) {
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ 
     id: task._id,
     data: {
@@ -368,6 +460,8 @@ function SortableTask({ task }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'move',
   }
 
   return (
@@ -376,16 +470,26 @@ function SortableTask({ task }) {
       style={style}
       {...attributes}
       {...listeners}
-      className="p-2 mb-2 rounded shadow cursor-move bg-card text-card-foreground"
+      className="p-3 mb-3 rounded-lg shadow bg-white dark:bg-gray-800 hover:shadow-md transition-shadow duration-200"
     >
-      <h4 className="font-bold">{task.title}</h4>
-      <p className="text-sm">{task.description}</p>
-      <p className="text-xs">Priority: {task.priority}</p>
-      <p className="text-xs">Due: {new Date(task.dueDate).toLocaleDateString()}</p>
+      <h4 className="font-bold text-purple-700 dark:text-purple-300">{task.title}</h4>
+      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{task.description}</p>
+      <div className="flex justify-between items-center mt-2">
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold
+          ${task.priority === 'Low' ? 'bg-gray-200 text-gray-800' :
+            task.priority === 'Medium' ? 'bg-orange-200 text-orange-800' :
+            'bg-red-200 text-red-800'}`}>
+          {task.priority}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Due: {new Date(task.dueDate).toLocaleDateString()}
+        </span>
+      </div>
     </div>
   )
 }
 
+// Component for the task form (used for both adding and editing tasks)
 function TaskForm({ task, onSubmit }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -395,14 +499,16 @@ function TaskForm({ task, onSubmit }) {
         placeholder="Task Title"
         defaultValue={task ? task.title : ''}
         required
+        className="w-full bg-white dark:bg-gray-700"
       />
       <Textarea
         name="description"
         placeholder="Task Description"
         defaultValue={task ? task.description : ''}
+        className="w-full bg-white dark:bg-gray-700"
       />
       <Select name="status" defaultValue={task ? task.status : 'To Do'}>
-        <SelectTrigger>
+        <SelectTrigger className="w-full bg-white dark:bg-gray-700">
           <SelectValue placeholder="Select Status" />
         </SelectTrigger>
         <SelectContent>
@@ -412,7 +518,7 @@ function TaskForm({ task, onSubmit }) {
         </SelectContent>
       </Select>
       <Select name="priority" defaultValue={task ? task.priority : 'Medium'}>
-        <SelectTrigger>
+        <SelectTrigger className="w-full bg-white dark:bg-gray-700">
           <SelectValue placeholder="Select Priority" />
         </SelectTrigger>
         <SelectContent>
@@ -421,13 +527,20 @@ function TaskForm({ task, onSubmit }) {
           <SelectItem value="High">High</SelectItem>
         </SelectContent>
       </Select>
-      <Input
-        type="date"
-        name="dueDate"
-        defaultValue={task ? task.dueDate.split('T')[0] : ''}
-        required
-      />
-      <Button type="submit">{task ? 'Update Task' : 'Add Task'}</Button>
+      <div className="flex items-center space-x-2">
+        {/* <Calendar className="h-5 w-5 text-gray-500 dark:text-gray-400" /> */}
+        <Input
+          type="date"
+          name="dueDate"
+          defaultValue={task ? task.dueDate.split('T')[0] : ''}
+          required
+          className="flex-grow bg-white dark:bg-gray-700"
+        />
+      </div>
+      <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+        {task ? 'Update Task' : 'Add Task'}
+        {task ? <Pencil className="ml-2 h-4 w-4" /> : <Plus className="ml-2 h-4 w-4" />}
+      </Button>
     </form>
   )
 }
