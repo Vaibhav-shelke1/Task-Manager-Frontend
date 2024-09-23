@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       const success = await login(email, password)
       if (success) {
-        router.push('/dashboard')
+        //router.push('/dashboard')
       }
     } catch (error) {
       console.error('Login failed:', error)
