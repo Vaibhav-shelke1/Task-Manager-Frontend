@@ -14,37 +14,36 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 
-
 export default function Navbar() {
   const { token, logout } = useTaskContext();
   const { theme, setTheme } = useTheme();
 
   return (
-    <nav className="bg-background text-foreground border-b">
+    <nav className="bg-white dark:bg-gray-800 border-b border-purple-200 dark:border-purple-800">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-bold">
-              Task Manager
+            <Link href="/" className="text-xl font-bold text-purple-600 dark:text-purple-400">
+              TaskFlow
             </Link>
           </div>
           <div className="hidden md:block">
             <div className="ml-10 flex items-center space-x-4">
               {token ? (
                 <>
-                  <Link href="/dashboard" className="hover:text-primary">
+                  <Link href="/dashboard" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                     Dashboard
                   </Link>
-                  <Button onClick={logout} variant="ghost">
+                  <Button onClick={logout} variant="ghost" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                     Logout
                   </Button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" className="hover:text-primary">
+                  <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                     Login
                   </Link>
-                  <Link href="/signup" className="hover:text-primary">
+                  <Link href="/signup" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                     Sign Up
                   </Link>
                 </>
@@ -53,6 +52,7 @@ export default function Navbar() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300"
               >
                 {theme === "dark" ? (
                   <SunIcon className="h-5 w-5" />
@@ -65,42 +65,44 @@ export default function Navbar() {
           
           <div className="md:hidden">
             <Sheet>
-              <SheetTrigger>
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 6h16M4 12h16m-7 6h7"
-                  ></path>
-                </svg>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 6h16M4 12h16m-7 6h7"
+                    ></path>
+                  </svg>
+                </Button>
               </SheetTrigger>
-              <SheetContent className="font-bold bg-white dark:bg-gray-800 text-black dark:text-white items-center">
+              <SheetContent className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                 <SheetHeader>
-                  <SheetTitle ><div className="items-center">Task Manager</div></SheetTitle>
+                  <SheetTitle className="text-purple-600 dark:text-purple-400">TaskFlow</SheetTitle>
                   <SheetDescription>
-                    <div className="flex flex-col gap-5 ">
+                    <div className="flex flex-col gap-5 mt-4">
                       {token ? (
                         <>
-                          <Link href="/dashboard" className="hover:text-primary">
+                          <Link href="/dashboard" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                             Dashboard
                           </Link>
-                          <Button onClick={logout} variant="ghost">
+                          <Button onClick={logout} variant="ghost" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                             Logout
                           </Button>
                         </>
                       ) : (
                         <>
-                          <Link href="/login" className="hover:text-primary">
+                          <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                             Login
                           </Link>
-                          <Link href="/signup" className="hover:text-primary">
+                          <Link href="/signup" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300">
                             Sign Up
                           </Link>
                         </>
@@ -109,6 +111,7 @@ export default function Navbar() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                        className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition duration-300"
                       >
                         {theme === "dark" ? (
                           <SunIcon className="h-5 w-5" />
